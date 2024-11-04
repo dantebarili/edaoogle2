@@ -18,6 +18,7 @@
 using namespace std;
 
 map<string, int> extraerPalabras(const std::string& archivo);
+void guardarPalabrasEnDatabase(sqlite3* db, const map<string, int>& frecuenciaPalabras, const string& url);
 
 static int onDatabaseEntry(void* userdata,
 	int argc,
@@ -69,19 +70,9 @@ int main(int argc, const char* argv[])
 		sqlite3_free(errMsg);
 	}
 
-	// Insertar datos de ejemplo
-	sql = "INSERT INTO keyword_index (keyword, url, frequency) VALUES "
-		"('programming', 'https://example.com/programming', 5),"
-		"('database', 'https://example.com/database', 3),"
-		"('sqlite3', 'https://example.com/sqlite3', 7);";
-
-	if (sqlite3_exec(db, sql, 0, 0, &errMsg) != SQLITE_OK) {
-		cout << "Error al insertar datos: " << errMsg << endl;
-		sqlite3_free(errMsg);
-	}
 	/*------------FIN DE LA CREACION Y CONFIGURACION DE LA BASE DE DATOS------------*/
 
-	/*------------PARTE DE MANIPULACION DE ARCHIVOS------------*/
+	/*------------MANIPULACION DE ARCHIVOS Y RELLENO DE LA BASE DE DATOS------------*/
 	string path = "C:/Users/Juani/Source/Repos/edaoogle2/www/wiki";
 
 	// Comprobamos si la ruta existe
@@ -93,11 +84,13 @@ int main(int argc, const char* argv[])
 	// Iteramos sobre los archivos en la carpeta
 	for (const auto& entrada : filesystem::directory_iterator(path)) {
 
-		const string path_del_archivo = entrada.path().string();
+		const string archivo_path = entrada.path().string();
+		const string archivo_nombre = entrada.path().filename().string();
 		map<string, int> mapa = extraerPalabras(path_del_archivo);
+		guardarPalabrasEnDatabase(sqlite3 * db, mapa, archivo_nombre);
 
 	}
-	/*------------FIN DE MANIPULACION DE ARCHIVOS------------*/
+	/*------------FIN DE MANIPULACION DE ARCHIVOS Y RELLENO DE LA BASE DE DATOS------------*/
 
 	cout << "Índice de búsqueda creado, y datos insertados exitosamente." << endl;
 
@@ -137,15 +130,19 @@ map<string, int> extraerPalabras(const string& nombreArchivo) {
 	return frecuenciaPalabras;
 }
 
-void guardarPalabrasEnDatabase(sqlite3* db, const map<string, int>& wordFrequency, const string& url) {
+void guardarPalabrasEnDatabase(sqlite3* db, const map<string, int> &frecuenciaPalabras, const string& url) {
 	char* errMsg = 0;
-	for (const auto& pair : wordFrequency) {
-		string keyword = pair.first;
-		int frequency = pair.second;
+	for (const auto& pair : frecuenciaPalabras) {
+		string palabra = pair.first;
+		int frecuencia = pair.second;
 
 		// Preparar consulta SQL
 		string sql = "INSERT INTO keyword_index (keyword, url, frequency) VALUES ('" +
-			keyword + "', '" + url + "', " + to_string(frequency) + ");";
+			palabra + 
+			"', '" + 
+			url + 
+			"', " + 
+			frecuencia + ");";
 
 		// Ejecutar consulta
 		if (sqlite3_exec(db, sql.c_str(), 0, 0, &errMsg) != SQLITE_OK) {
