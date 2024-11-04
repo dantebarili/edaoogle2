@@ -9,107 +9,148 @@
 
 #include <iostream>
 #include <string>
+#include <map>
+#include <fstream>
+#include <filesystem>
 
 #include <sqlite3.h>
 
 using namespace std;
 
-static int onDatabaseEntry(void *userdata,
-                           int argc,
-                           char **argv,
-                           char **azColName)
-{
-    cout << "--- Entry" << endl;
-    for (int i = 0; i < argc; i++)
-    {
-        if (argv[i])
-            cout << azColName[i] << ": " << argv[i] << endl;
-        else
-            cout << azColName[i] << ": " << "NULL" << endl;
-    }
+map<string, int> extraerPalabras(const std::string& archivo);
 
-    return 0;
+static int onDatabaseEntry(void* userdata,
+	int argc,
+	char** argv,
+	char** azColName)
+{
+	cout << "--- Entry" << endl;
+	for (int i = 0; i < argc; i++)
+	{
+		if (argv[i])
+			cout << azColName[i] << ": " << argv[i] << endl;
+		else
+			cout << azColName[i] << ": " << "NULL" << endl;
+	}
+
+	return 0;
 }
 
-int main(int argc,
-         const char *argv[])
+int main(int argc, const char* argv[])
 {
-    char *databaseFile = "index.db";
-    sqlite3 *database;
-    char *databaseErrorMessage;
+	/*------------CREACION Y CONFIGURACION DE LA BASE DE DATOS------------*/
+	sqlite3* db;
+	char* errMsg = 0;
+	const char* sql;
 
-    // Open database file
-    cout << "Opening database..." << endl;
-    if (sqlite3_open(databaseFile, &database) != SQLITE_OK)
-    {
-        cout << "Can't open database: " << sqlite3_errmsg(database) << endl;
+	// Abrir la base de datos
+	if (sqlite3_open("search_index.db", &db)) {
+		cout << "Error al abrir la base de datos: " << sqlite3_errmsg(db) << endl;
+		return 1;
+	}
 
-        return 1;
-    }
+	// Crear tabla para almacenar palabras clave, URLs y frecuencia de aparición
+	sql = "CREATE TABLE IF NOT EXISTS keyword_index ("
+		"id INTEGER PRIMARY KEY, "
+		"keyword TEXT NOT NULL, "
+		"url TEXT NOT NULL, "
+		"frequency INTEGER NOT NULL);"; // Columna para frecuencia
 
-    // Create a sample table
-    cout << "Creating table..." << endl;
-    if (sqlite3_exec(database,
-                     "CREATE TABLE room_occupation "
-                     "(id INTEGER PRIMARY KEY,"
-                     "room varchar DEFAULT NULL,"
-                     "reserved_from DATETIME,"
-                     "reserved_until DATETIME);",
-                     NULL,
-                     0,
-                     &databaseErrorMessage) != SQLITE_OK)
-        cout << "Error: " << sqlite3_errmsg(database) << endl;
+	if (sqlite3_exec(db, sql, 0, 0, &errMsg) != SQLITE_OK) {
+		cout << "Error al crear la tabla: " << errMsg << endl;
+		sqlite3_free(errMsg);
+	}
 
-    // Delete previous entries if table already existed
-    cout << "Deleting previous entries..." << endl;
-    if (sqlite3_exec(database,
-                     "DELETE FROM room_occupation;",
-                     NULL,
-                     0,
-                     &databaseErrorMessage) != SQLITE_OK)
-        cout << "Error: " << sqlite3_errmsg(database) << endl;
+	// Crear índice en la columna de palabras clave para agilizar las búsquedas
+	sql = "CREATE INDEX IF NOT EXISTS idx_keyword ON keyword_index(keyword);";
 
-    // Create sample entries
-    cout << "Creating sample entries..." << endl;
-    if (sqlite3_exec(database,
-                     "INSERT INTO room_occupation (room, reserved_from, reserved_until) VALUES "
-                     "('401F','2022-03-03 15:00:00','2022-03-03 16:00:00');",
-                     NULL,
-                     0,
-                     &databaseErrorMessage) != SQLITE_OK)
-        cout << "Error: " << sqlite3_errmsg(database) << endl;
-    if (sqlite3_exec(database,
-                     "INSERT INTO room_occupation (room, reserved_from, reserved_until) VALUES "
-                     "('501F','2022-03-03 15:00:00','2022-03-03 17:00:00');",
-                     NULL,
-                     0,
-                     &databaseErrorMessage) != SQLITE_OK)
-        cout << "Error: " << sqlite3_errmsg(database) << endl;
-    if (sqlite3_exec(database,
-                     "INSERT INTO room_occupation (room, reserved_from, reserved_until) VALUES "
-                     "('001R','2022-03-03 15:00:00','2022-03-03 16:30:00');",
-                     NULL,
-                     0,
-                     &databaseErrorMessage) != SQLITE_OK)
-        cout << "Error: " << sqlite3_errmsg(database) << endl;
-    if (sqlite3_exec(database,
-                     "INSERT INTO room_occupation (room, reserved_from, reserved_until) VALUES "
-                     "('1001F','2022-03-03 15:30:00','2022-03-03 16:30:00');",
-                     NULL,
-                     0,
-                     &databaseErrorMessage) != SQLITE_OK)
-        cout << "Error: " << sqlite3_errmsg(database) << endl;
+	if (sqlite3_exec(db, sql, 0, 0, &errMsg) != SQLITE_OK) {
+		cout << "Error al crear el índice: " << errMsg << endl;
+		sqlite3_free(errMsg);
+	}
 
-    // Fetch entries
-    cout << "Fetching entries..." << endl;
-    if (sqlite3_exec(database,
-                     "SELECT * from room_occupation;",
-                     onDatabaseEntry,
-                     0,
-                     &databaseErrorMessage) != SQLITE_OK)
-        cout << "Error: " << sqlite3_errmsg(database) << endl;
+	// Insertar datos de ejemplo
+	sql = "INSERT INTO keyword_index (keyword, url, frequency) VALUES "
+		"('programming', 'https://example.com/programming', 5),"
+		"('database', 'https://example.com/database', 3),"
+		"('sqlite3', 'https://example.com/sqlite3', 7);";
 
-    // Close database
-    cout << "Closing database..." << endl;
-    sqlite3_close(database);
+	if (sqlite3_exec(db, sql, 0, 0, &errMsg) != SQLITE_OK) {
+		cout << "Error al insertar datos: " << errMsg << endl;
+		sqlite3_free(errMsg);
+	}
+	/*------------FIN DE LA CREACION Y CONFIGURACION DE LA BASE DE DATOS------------*/
+
+	/*------------PARTE DE MANIPULACION DE ARCHIVOS------------*/
+	string path = "C:/Users/Juani/Source/Repos/edaoogle2/www/wiki";
+
+	// Comprobamos si la ruta existe
+	if (!filesystem::exists(path)) {
+		std::cerr << "La carpeta no existe." << std::endl;
+		return 1;
+	}
+
+	// Iteramos sobre los archivos en la carpeta
+	for (const auto& entrada : filesystem::directory_iterator(path)) {
+
+		const string path_del_archivo = entrada.path().string();
+		map<string, int> mapa = extraerPalabras(path_del_archivo);
+
+	}
+	/*------------FIN DE MANIPULACION DE ARCHIVOS------------*/
+
+	cout << "Índice de búsqueda creado, y datos insertados exitosamente." << endl;
+
+	// Cerrar la base de datos
+	sqlite3_close(db);
+	return 0;
+}
+
+map<string, int> extraerPalabras(const string& nombreArchivo) {
+	ifstream archivo(nombreArchivo);
+	map<string, int> frecuenciaPalabras;
+	string linea;
+
+	// Leer el archivo línea por línea
+	while (getline(archivo, linea)) {
+		string palabra;
+
+		// Recorrer cada carácter en la línea
+		for (char& ch : linea) {
+			if (isalpha(ch)) {
+				// Si es una letra, seguimos contruyendo la palabra
+				palabra += tolower(ch);
+			}
+			else if (!palabra.empty()) {
+				// Si no es una letra y tenemos caracteres en la palabra, pasamos a terminar de evaluarla
+				frecuenciaPalabras[palabra]++;
+				palabra.clear(); // Reiniciar la palabra
+			}
+		}
+
+		// Captura la última palabra en la línea (por si el ultimo caracter fue una letra)
+		if (!palabra.empty()) {
+			frecuenciaPalabras[palabra]++;
+		}
+	}
+
+	return frecuenciaPalabras;
+}
+
+void guardarPalabrasEnDatabase(sqlite3* db, const map<string, int>& wordFrequency, const string& url) {
+	char* errMsg = 0;
+	for (const auto& pair : wordFrequency) {
+		string keyword = pair.first;
+		int frequency = pair.second;
+
+		// Preparar consulta SQL
+		string sql = "INSERT INTO keyword_index (keyword, url, frequency) VALUES ('" +
+			keyword + "', '" + url + "', " + to_string(frequency) + ");";
+
+		// Ejecutar consulta
+		if (sqlite3_exec(db, sql.c_str(), 0, 0, &errMsg) != SQLITE_OK) {
+			cout << "Error al insertar en la base de datos: " << errMsg << endl;
+			sqlite3_free(errMsg);
+		}
+	}
 }
