@@ -86,8 +86,8 @@ int main(int argc, const char* argv[])
 
 		const string archivo_path = entrada.path().string();
 		const string archivo_nombre = entrada.path().filename().string();
-		map<string, int> mapa = extraerPalabras(path_del_archivo);
-		guardarPalabrasEnDatabase(sqlite3 * db, mapa, archivo_nombre);
+		map<string, int> mapa = extraerPalabras(archivo_path);
+		guardarPalabrasEnDatabase(db, mapa, archivo_nombre);
 
 	}
 	/*------------FIN DE MANIPULACION DE ARCHIVOS Y RELLENO DE LA BASE DE DATOS------------*/
