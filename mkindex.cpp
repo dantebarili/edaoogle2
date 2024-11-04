@@ -45,7 +45,7 @@ int main(int argc, const char* argv[])
 	const char* sql;
 
 	// Abrir la base de datos
-	if (sqlite3_open("search_index.db", &db)) {
+	if (sqlite3_open("C:/Users/dante/OneDrive/Documentos/git/edaoogle2/search_index.db", &db)) {
 		cout << "Error al abrir la base de datos: " << sqlite3_errmsg(db) << endl;
 		return 1;
 	}
@@ -73,7 +73,7 @@ int main(int argc, const char* argv[])
 	/*------------FIN DE LA CREACION Y CONFIGURACION DE LA BASE DE DATOS------------*/
 
 	/*------------MANIPULACION DE ARCHIVOS Y RELLENO DE LA BASE DE DATOS------------*/
-	string path = "C:/Users/Juani/Source/Repos/edaoogle2/www/wiki";
+	string path = "C:/Users/dante/OneDrive/Documentos/git/edaoogle2/www/wiki";
 
 	// Comprobamos si la ruta existe
 	if (!filesystem::exists(path)) {
