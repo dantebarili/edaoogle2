@@ -142,7 +142,7 @@ void guardarPalabrasEnDatabase(sqlite3* db, const map<string, int> &frecuenciaPa
 			"', '" + 
 			url + 
 			"', " + 
-			frecuencia + ");";
+			to_string(frecuencia) + ");";
 
 		// Ejecutar consulta
 		if (sqlite3_exec(db, sql.c_str(), 0, 0, &errMsg) != SQLITE_OK) {
