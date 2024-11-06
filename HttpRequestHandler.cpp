@@ -12,8 +12,10 @@
 #include <iostream>
 #include <sqlite3.h>
 #include <vector>
+#include <algorithm>
 
 #include "HttpRequestHandler.h"
+#include <sstream>
 
 using namespace std;
 
@@ -104,35 +106,75 @@ bool insertDataIntoFTS(sqlite3* db) {
 }
 
 bool searchUsingFTS(sqlite3* db, const string& searchString, vector<string>& results) {
+    std::stringstream ss(searchString);
+    std::string word;
+    std::map<string, int> urlFrequencies;
+    std::multimap<int, string> resultsMap;
+    std::string matchQuery;
+
+    urlFrequencies.clear();
+
+    // Construir la consulta para las palabras clave separadas por OR
+    while (ss >> word) {
+        if (!matchQuery.empty()) {
+            matchQuery += " OR ";
+        }
+        matchQuery += "\"" + word + "\"";
+    }
+
     const char* query = R"(
-        SELECT URL, SUM(frequency) AS total_frequency
+        SELECT URL, frequency
         FROM keyword_index_fts
         WHERE keyword MATCH ?
-        GROUP BY URL
-        ORDER BY total_frequency DESC
     )";
 
     sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(db, query, -1, &stmt, nullptr) == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, searchString.c_str(), -1, SQLITE_STATIC);
+    if (sqlite3_prepare_v2(db, query, -1, &stmt, nullptr) == SQLITE_OK) {        
+        sqlite3_bind_text(stmt, 1, matchQuery.c_str(), -1, SQLITE_STATIC);
 
         while (sqlite3_step(stmt) == SQLITE_ROW) {
-            const char* pageName = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+            const char* urlPagina = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));    // url de la pagina que coincide con la entrada
+            int frequency = sqlite3_column_int(stmt, 1);    // frecuencia de la palabra actual en esa url
 
-            if (pageName) {
-                results.push_back(pageName); 
+            if (urlPagina) {
+                string url(urlPagina);
+                urlFrequencies[url] += frequency;  // Acumula la frecuencia por URL
             }
         }
 
         sqlite3_finalize(stmt);
-        return true;
     }
     else {
         cerr << "Error al buscar con FTS: " << sqlite3_errmsg(db) << endl;
         return false;
     }
-}
+    // Paso a otro mapa donde la clave sea la frecuencia
+    for (const auto& item : urlFrequencies) {
+        resultsMap.insert({item.second, item.first});
+    }  
 
+    for (auto it = resultsMap.rbegin(); it != resultsMap.rend(); ++it) {
+        results.push_back(it->second);
+        cout << "URL: " << it->second << ", Total Frequency: " << it->first << endl;
+    }
+
+    const char* deleteQuery = "DELETE FROM keyword_index_fts;";
+    sqlite3_stmt* stmt3;
+    if (sqlite3_prepare_v2(db, deleteQuery, -1, &stmt3, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt3) != SQLITE_DONE) {
+            cerr << "Error al limpiar el contenido de la tabla FTS: " << sqlite3_errmsg(db) << endl;
+        }
+        else {
+            cout << "Contenido de la tabla FTS limpiado exitosamente." << endl;
+        }
+        sqlite3_finalize(stmt3);
+    }
+    else {
+        cerr << "Error al preparar la consulta DELETE: " << sqlite3_errmsg(db) << endl;
+    }
+
+    return true;
+}
 
 bool HttpRequestHandler::handleRequest(string url,
     HttpArguments arguments,
