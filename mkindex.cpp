@@ -103,6 +103,7 @@ map<string, int> extraerPalabras(const string& nombreArchivo) {
 	ifstream archivo(nombreArchivo);
 	map<string, int> frecuenciaPalabras;
 	string linea;
+	char brackets = 0;
 
 	// Leer el archivo línea por línea
 	while (getline(archivo, linea)) {
@@ -110,9 +111,22 @@ map<string, int> extraerPalabras(const string& nombreArchivo) {
 
 		// Recorrer cada carácter en la línea
 		for (char& ch : linea) {
-			if (isalpha(ch)) {
-				// Si es una letra, seguimos contruyendo la palabra
-				palabra += tolower(ch);
+			if (ch == '<') {
+				brackets = 1;
+				continue;
+			}
+			else if (ch == '>') {
+				brackets = 0;
+				continue;
+			}
+
+			// Si estamos dentro de una etiqueta, ignoramos el carácter
+			if (brackets == 1) {
+				continue;
+			}
+
+			if (isalpha(static_cast<unsigned char>(ch))) {
+				palabra += tolower(static_cast<unsigned char>(ch));
 			}
 			else if (!palabra.empty()) {
 				// Si no es una letra y tenemos caracteres en la palabra, pasamos a terminar de evaluarla
