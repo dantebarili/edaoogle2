@@ -24,6 +24,8 @@ HttpRequestHandler::HttpRequestHandler(string homePath)
     this->homePath = homePath;
 }
 
+bool crearTablaFTS(sqlite3* db);
+
 /**
  * @brief Serves a webpage from file
  *
@@ -60,7 +62,7 @@ bool HttpRequestHandler::serve(string url, vector<char> &response)
     return true;
 }
 
-bool createFTSTable(sqlite3* db) {
+bool crearTablaFTS(sqlite3* db) {
 
     const char* comandoCrearTablaFts = R"(
         CREATE VIRTUAL TABLE IF NOT EXISTS keyword_index_fts USING fts5(keyword, URL, frequency);
@@ -91,7 +93,7 @@ bool createFTSTable(sqlite3* db) {
     }
 }
 
-bool insertDataIntoFTS(sqlite3* db) {
+bool agregarDatosTablaFTS(sqlite3* db) {
 
     const char* comandoInsertarDatos = R"(
         INSERT INTO keyword_index_fts (keyword, URL, frequency)
@@ -123,12 +125,12 @@ bool insertDataIntoFTS(sqlite3* db) {
     }
 }
 
-bool searchUsingFTS(sqlite3* db, const string& searchString, vector<string>& results) {
+bool buscarConFTS(sqlite3* db, const string& searchString, vector<string>& results) {
 
     std::stringstream ss(searchString);
-    std::string word;
+    std::string palabra;
     std::map<string, int> urlFrequencies;
-    std::multimap<int, string> resultsMap;
+    std::multimap<int, string> mapaResultados;
     std::string comandoOrdenarUrlsContinuacion;
 
     urlFrequencies.clear();
@@ -140,11 +142,11 @@ bool searchUsingFTS(sqlite3* db, const string& searchString, vector<string>& res
     )";
 
     // Construir la consulta para las palabras clave separadas por OR
-    while (ss >> word) {
+    while (ss >> palabra) {
         if (!comandoOrdenarUrlsContinuacion.empty()) {
             comandoOrdenarUrlsContinuacion += " OR ";
         }
-        comandoOrdenarUrlsContinuacion += "\"" + word + "\"";
+        comandoOrdenarUrlsContinuacion += "\"" + palabra + "\"";
     }
 
     sqlite3_stmt* stmt;
@@ -160,7 +162,7 @@ bool searchUsingFTS(sqlite3* db, const string& searchString, vector<string>& res
 
             if (urlPagina) {
                 string url(urlPagina);
-                urlFrequencies[url] += frequency;  // Acumula la frecuencia por URL
+                urlFrequencies[url] += frequency;  
             }
         }
 
@@ -174,10 +176,10 @@ bool searchUsingFTS(sqlite3* db, const string& searchString, vector<string>& res
 
     // Paso a otro mapa donde la clave sea la frecuencia
     for (const auto& item : urlFrequencies) {
-        resultsMap.insert({item.second, item.first});
+        mapaResultados.insert({item.second, item.first});
     }  
 
-    for (auto it = resultsMap.rbegin(); it != resultsMap.rend(); ++it) {
+    for (auto it = mapaResultados.rbegin(); it != mapaResultados.rend(); ++it) {
         results.push_back(it->second);
         cout << "URL: " << it->second << ", Total Frequency: " << it->first << endl;
     }
@@ -232,15 +234,15 @@ bool HttpRequestHandler::handleRequest(string url,
         vector<string> results;
 
         // Crear tabla FTS e insterarle los datos
-        if (!createFTSTable(db)) {      
+        if (!crearTablaFTS(db)) {      
             return 1;
         }
 
-        if(!insertDataIntoFTS(db)){            
+        if(!agregarDatosTablaFTS(db)){            
             return 1;
         }
 
-        if(!searchUsingFTS(db, searchString, results)){            
+        if(!buscarConFTS(db, searchString, results)){            
             return 1;
         }
 
@@ -273,13 +275,10 @@ bool HttpRequestHandler::handleRequest(string url,
         responseString += "<div class=\"results\">" + to_string(results.size()) +
             " results (" + to_string(searchTime) + " seconds):</div>";
         
-        // para que se puedan clickear las paginas
+        // Para que se pueda acceder a las paginas
         for (auto& result : results) {
-            responseString += "<div class=\"result\"><a href=\"/wiki/" + result + /*".html\">" + result + */"</a></div>";
-        }/*
-        for (auto& result : results)
-            responseString += "<div class=\"result\"><a href=\"#\">" + result + "</a></div>";
-*/
+            responseString += "<div class=\"result\"><a href=\"/wiki/" + result + "\">" + result + "</a></div>";
+        }
         // Cierra el HTML
         responseString += "</article>\
 </body>\
