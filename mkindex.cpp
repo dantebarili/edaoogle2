@@ -174,24 +174,4 @@ void guardarPalabrasEnDatabase(sqlite3* db, const map<string, int> &frecuenciaPa
 
 	// Liberar la declaración preparada
 	sqlite3_finalize(stmt);
-	
-	/*char* errMsg = 0;
-	for (const auto& pair : frecuenciaPalabras) {
-		string palabra = pair.first;
-		int frecuencia = pair.second;
-
-		// Preparar consulta SQL
-		string sql = "INSERT INTO keyword_index (keyword, url, frequency) VALUES ('" +
-			palabra + 
-			"', '" + 
-			url + 
-			"', " + 
-			to_string(frecuencia) + ");";
-
-		// Ejecutar consulta
-		if (sqlite3_exec(db, sql.c_str(), 0, 0, &errMsg) != SQLITE_OK) {
-			cout << "Error al insertar en la base de datos: " << errMsg << endl;
-			sqlite3_free(errMsg);
-		}
-	}*/
 }
