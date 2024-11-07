@@ -222,7 +222,7 @@ bool HttpRequestHandler::handleRequest(string url,
 
         // Conectar a la base de datos SQLite
         sqlite3* db;
-        if (sqlite3_open("C:/Users/Juani/Source/Repos/edaoogle2/search_index.db", &db) != SQLITE_OK)
+        if (sqlite3_open("C:/Users/dante/OneDrive/Documentos/git/edaoogle2/search_index.db", &db) != SQLITE_OK)
         {
             cerr << "Error al abrir la base de datos" << endl;
             return false;
@@ -272,9 +272,14 @@ bool HttpRequestHandler::handleRequest(string url,
         float searchTime = 0.1F; // Simula el tiempo de búsqueda
         responseString += "<div class=\"results\">" + to_string(results.size()) +
             " results (" + to_string(searchTime) + " seconds):</div>";
+        
+        // para que se puedan clickear las paginas
+        for (auto& result : results) {
+            responseString += "<div class=\"result\"><a href=\"/wiki/" + result + /*".html\">" + result + */"</a></div>";
+        }/*
         for (auto& result : results)
             responseString += "<div class=\"result\"><a href=\"#\">" + result + "</a></div>";
-
+*/
         // Cierra el HTML
         responseString += "</article>\
 </body>\

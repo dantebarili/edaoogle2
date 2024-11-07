@@ -45,7 +45,7 @@ int main(int argc, const char* argv[])
 	const char* sql;
 
 	// Abrir la base de datos
-	if (sqlite3_open("C:/Users/Juani/Source/Repos/edaoogle2/search_index.db", &db)) {
+	if (sqlite3_open("C:/Users/dante/OneDrive/Documentos/git/edaoogle2/search_index.db", &db)) {
 		cout << "Error al abrir la base de datos: " << sqlite3_errmsg(db) << endl;
 		return 1;
 	}
@@ -73,7 +73,7 @@ int main(int argc, const char* argv[])
 	/*------------FIN DE LA CREACION Y CONFIGURACION DE LA BASE DE DATOS------------*/
 
 	/*------------MANIPULACION DE ARCHIVOS Y RELLENO DE LA BASE DE DATOS------------*/
-	string path = "C:/Users/Juani/Source/Repos/edaoogle2/www/wiki";
+	string path = "C:/Users/dante/OneDrive/Documentos/git/edaoogle2/www/wiki";
 
 	// Comprobamos si la ruta existe
 	if (!filesystem::exists(path)) {
@@ -145,7 +145,37 @@ map<string, int> extraerPalabras(const string& nombreArchivo) {
 }
 
 void guardarPalabrasEnDatabase(sqlite3* db, const map<string, int> &frecuenciaPalabras, const string& url) {
-	char* errMsg = 0;
+	sqlite3_stmt* stmt;
+	const char* sql = "INSERT INTO keyword_index (keyword, url, frequency) VALUES (?, ?, ?);";
+
+	// Preparar la declaración
+	if (sqlite3_prepare_v2(db, sql, -1, &stmt, 0) != SQLITE_OK) {
+		cout << "Error al preparar la declaración: " << sqlite3_errmsg(db) << endl;
+		return;
+	}
+
+	for (const auto& pair : frecuenciaPalabras) {
+		string palabra = pair.first;
+		int frecuencia = pair.second;
+
+		// Bind de los valores a la declaración preparada
+		sqlite3_bind_text(stmt, 1, palabra.c_str(), -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 2, url.c_str(), -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int(stmt, 3, frecuencia);
+
+		// Ejecutar la declaración
+		if (sqlite3_step(stmt) != SQLITE_DONE) {
+			cout << "Error al insertar en la base de datos: " << sqlite3_errmsg(db) << endl;
+		}
+
+		// Resetear la declaración para el siguiente uso
+		sqlite3_reset(stmt);
+	}
+
+	// Liberar la declaración preparada
+	sqlite3_finalize(stmt);
+	
+	/*char* errMsg = 0;
 	for (const auto& pair : frecuenciaPalabras) {
 		string palabra = pair.first;
 		int frecuencia = pair.second;
@@ -163,5 +193,5 @@ void guardarPalabrasEnDatabase(sqlite3* db, const map<string, int> &frecuenciaPa
 			cout << "Error al insertar en la base de datos: " << errMsg << endl;
 			sqlite3_free(errMsg);
 		}
-	}
+	}*/
 }
