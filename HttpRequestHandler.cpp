@@ -61,78 +61,100 @@ bool HttpRequestHandler::serve(string url, vector<char> &response)
 }
 
 bool createFTSTable(sqlite3* db) {
-    const char* createTableQuery = R"(
+
+    const char* comandoCrearTablaFts = R"(
         CREATE VIRTUAL TABLE IF NOT EXISTS keyword_index_fts USING fts5(keyword, URL, frequency);
     )";
 
     sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(db, createTableQuery, -1, &stmt, nullptr) == SQLITE_OK) {
+
+    if (sqlite3_prepare_v2(db, comandoCrearTablaFts, -1, &stmt, nullptr) == SQLITE_OK) {
+
         if (sqlite3_step(stmt) != SQLITE_DONE) {
+
             cerr << "Error al crear la tabla FTS: " << sqlite3_errmsg(db) << endl;
             sqlite3_finalize(stmt);
             return false;
+
         }
+
         sqlite3_finalize(stmt);
         cout << "Tabla FTS creada correctamente." << endl;
         return true;
+
     }
     else {
+
         cerr << "Error al crear la tabla FTS: " << sqlite3_errmsg(db) << endl;
         return false;
+
     }
 }
 
 bool insertDataIntoFTS(sqlite3* db) {
-    const char* insertDataQuery = R"(
+
+    const char* comandoInsertarDatos = R"(
         INSERT INTO keyword_index_fts (keyword, URL, frequency)
         SELECT keyword, url, frequency FROM keyword_index;
     )";
 
     sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(db, insertDataQuery, -1, &stmt, nullptr) == SQLITE_OK) {
+
+    if (sqlite3_prepare_v2(db, comandoInsertarDatos, -1, &stmt, nullptr) == SQLITE_OK) {
+
         if (sqlite3_step(stmt) != SQLITE_DONE) {
+
             cerr << "Error al insertar los datos en la tabla FTS: " << sqlite3_errmsg(db) << endl;
             sqlite3_finalize(stmt);
             return false;
+
         }
+
         sqlite3_finalize(stmt);
         cout << "Datos insertados en la tabla FTS correctamente." << endl;
         return true;
+
     }
     else {
-        cerr << "Error al preparar la consulta de insercion: " << sqlite3_errmsg(db) << endl;
+
+        cerr << "Error al preparar la insercion de datos: " << sqlite3_errmsg(db) << endl;
         return false;
+
     }
 }
 
 bool searchUsingFTS(sqlite3* db, const string& searchString, vector<string>& results) {
+
     std::stringstream ss(searchString);
     std::string word;
     std::map<string, int> urlFrequencies;
     std::multimap<int, string> resultsMap;
-    std::string matchQuery;
+    std::string comandoOrdenarUrlsContinuacion;
 
     urlFrequencies.clear();
 
-    // Construir la consulta para las palabras clave separadas por OR
-    while (ss >> word) {
-        if (!matchQuery.empty()) {
-            matchQuery += " OR ";
-        }
-        matchQuery += "\"" + word + "\"";
-    }
-
-    const char* query = R"(
+    const char* comandoOrdenarUrls = R"(
         SELECT URL, frequency
         FROM keyword_index_fts
         WHERE keyword MATCH ?
     )";
 
+    // Construir la consulta para las palabras clave separadas por OR
+    while (ss >> word) {
+        if (!comandoOrdenarUrlsContinuacion.empty()) {
+            comandoOrdenarUrlsContinuacion += " OR ";
+        }
+        comandoOrdenarUrlsContinuacion += "\"" + word + "\"";
+    }
+
     sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(db, query, -1, &stmt, nullptr) == SQLITE_OK) {        
-        sqlite3_bind_text(stmt, 1, matchQuery.c_str(), -1, SQLITE_STATIC);
+
+    if (sqlite3_prepare_v2(db, comandoOrdenarUrls, -1, &stmt, nullptr) == SQLITE_OK) {
+
+        sqlite3_bind_text(stmt, 1, comandoOrdenarUrlsContinuacion.c_str(), -1, SQLITE_STATIC);
 
         while (sqlite3_step(stmt) == SQLITE_ROW) {
+
             const char* urlPagina = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));    // url de la pagina que coincide con la entrada
             int frequency = sqlite3_column_int(stmt, 1);    // frecuencia de la palabra actual en esa url
 
@@ -145,9 +167,11 @@ bool searchUsingFTS(sqlite3* db, const string& searchString, vector<string>& res
         sqlite3_finalize(stmt);
     }
     else {
+
         cerr << "Error al buscar con FTS: " << sqlite3_errmsg(db) << endl;
         return false;
     }
+
     // Paso a otro mapa donde la clave sea la frecuencia
     for (const auto& item : urlFrequencies) {
         resultsMap.insert({item.second, item.first});
@@ -158,19 +182,28 @@ bool searchUsingFTS(sqlite3* db, const string& searchString, vector<string>& res
         cout << "URL: " << it->second << ", Total Frequency: " << it->first << endl;
     }
 
-    const char* deleteQuery = "DELETE FROM keyword_index_fts;";
+    const char* comandoLimpiarTablaFTS = "DELETE FROM keyword_index_fts;";
     sqlite3_stmt* stmt3;
-    if (sqlite3_prepare_v2(db, deleteQuery, -1, &stmt3, nullptr) == SQLITE_OK) {
+    if (sqlite3_prepare_v2(db, comandoLimpiarTablaFTS, -1, &stmt3, nullptr) == SQLITE_OK) {
+
         if (sqlite3_step(stmt3) != SQLITE_DONE) {
+
             cerr << "Error al limpiar el contenido de la tabla FTS: " << sqlite3_errmsg(db) << endl;
+
         }
         else {
+
             cout << "Contenido de la tabla FTS limpiado exitosamente." << endl;
+
         }
+
         sqlite3_finalize(stmt3);
+
     }
     else {
+
         cerr << "Error al preparar la consulta DELETE: " << sqlite3_errmsg(db) << endl;
+
     }
 
     return true;
@@ -189,7 +222,7 @@ bool HttpRequestHandler::handleRequest(string url,
 
         // Conectar a la base de datos SQLite
         sqlite3* db;
-        if (sqlite3_open("C:/Users/dante/OneDrive/Documentos/git/edaoogle2/search_index.db", &db) != SQLITE_OK)
+        if (sqlite3_open("C:/Users/Juani/Source/Repos/edaoogle2/search_index.db", &db) != SQLITE_OK)
         {
             cerr << "Error al abrir la base de datos" << endl;
             return false;
