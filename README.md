@@ -30,3 +30,8 @@ Cómo configurar el programa para que funcione:
 -HtppRequestHandler.cpp:
 
   Linea 192: poner el path hasta la carpeta edaoogle2 e incluir el nombre de la base de datos (search_index.db).
+
+Como ejecutar el programa:
+
+Primero, correr mkindex.exe, una vez creada la tabla, abrir una terminal e ir primero a la carpeta x64-Debug (nombre_del_proyecto/out/build/x64-Debug).
+Una vez hecho esto ejecutar el comando ./edahttp -h (path hasta la carpeta www).
